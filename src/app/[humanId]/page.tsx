@@ -1,11 +1,14 @@
 "use client";
 import Image from "next/image";
+import { useParams } from "next/navigation";
 
 export default function Home() {
+    const params = useParams();
+    const human_id = params["humanId"];
   const handleClick = async () => {
     const response = await fetch("/api/resposes", {
       method: "POST",
-      body: JSON.stringify({ human_id: "123", reaction_time: 100 }),
+      body: JSON.stringify({ human_id: human_id, reaction_time: 100 }),
     });
     const data = await response.json();
     console.log(data);
