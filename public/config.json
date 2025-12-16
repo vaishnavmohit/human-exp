@@ -1,0 +1,14 @@
+{
+  "n_per_category": 10,
+  "randomize_assignment": false,
+  "shuffle_categories": true,
+  "metadata_files": {
+    "ff": "/metadata/test_ff_balanced_500_with_desc.json",
+    "bd": "/metadata/test_bd_balanced_500_with_desc.json",
+    "hd_novel": "/metadata/test_hd_novel_balanced_500_with_desc.json",
+    "hd_comb": "/metadata/test_hd_comb_balanced_500_with_desc.json"
+  },
+  "category_order": ["ff", "bd", "hd_novel", "hd_comb"],
+  "supported_groups": [1, 4],
+  "image_base_path": "/ShapeBongard"
+}

@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useParams } from "next/navigation";
+import { useParams, useSearchParams } from "next/navigation";
 import { loadQuiz } from "@/lib/load-quiz";
 import { QuizQuestion } from "@/lib/types"
 
@@ -14,19 +14,72 @@ import { Button } from "@/components/ui/button";
 
 export default function QuizPage() {
   const { humanId } = useParams();
+  const searchParams = useSearchParams();
+  
+  // Get group from URL params (default to 1 if not specified)
+  const group = parseInt(searchParams.get('group') || '1', 10);
 
   const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
   const [index, setIndex] = useState(0);
   const [showDialog, setShowDialog] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    loadQuiz().then(setQuiz).catch(console.error);
-  }, []);
+    setLoading(true);
+    setError(null);
+    
+    loadQuiz(humanId as string, group)
+      .then(setQuiz)
+      .catch((err) => {
+        console.error('Failed to load quiz:', err);
+        setError(err.message || 'Failed to load quiz');
+      })
+      .finally(() => setLoading(false));
+  }, [humanId, group]);
+
+  if (loading) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center gap-4">
+        <div className="text-lg">Loading quiz…</div>
+        <div className="text-sm text-gray-500">
+          Participant: {humanId} | Group: {group}
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center gap-4">
+        <div className="text-lg text-red-600">Error loading quiz</div>
+        <div className="text-sm text-gray-500">{error}</div>
+      </div>
+    );
+  }
 
   if (!quiz.length) {
     return (
-      <div className="h-screen flex items-center justify-center">
-        Loading quiz…
+      <div className="h-screen flex flex-col items-center justify-center gap-4">
+        <div className="text-lg">No questions available</div>
+        <div className="text-sm text-gray-500">
+          Please check your configuration
+        </div>
+      </div>
+    );
+  }
+
+  // Check if quiz completed
+  if (index >= quiz.length) {
+    return (
+      <div className="h-screen flex flex-col items-center justify-center gap-4">
+        <div className="text-2xl font-bold">Quiz Completed! 🎉</div>
+        <div className="text-lg text-gray-600">
+          You answered {quiz.length} questions
+        </div>
+        <div className="text-sm text-gray-500">
+          Thank you for participating!
+        </div>
       </div>
     );
   }
@@ -36,6 +89,18 @@ export default function QuizPage() {
   const handleSubmit = async (answer: "positive" | "negative") => {
     setShowDialog(false);
 
+    // TODO: Send answer to API
+    // await fetch('/api/responses', {
+    //   method: 'POST',
+    //   body: JSON.stringify({
+    //     humanId,
+    //     questionId: question.id,
+    //     answer,
+    //     timestamp: Date.now()
+    //   })
+    // });
+
+    // Move to next question
     setIndex((i) => i + 1);
   };
 
