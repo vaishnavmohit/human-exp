@@ -189,9 +189,8 @@ export default function Home() {
                   className="mt-1 h-5 w-5 text-blue-600 focus:ring-2 focus:ring-blue-500 rounded"
                 />
                 <span className="text-sm text-gray-700">
-                  <strong>I consent to participate</strong> in this research study. 
-                  I understand that my responses will be recorded and used for research purposes. 
-                  I can withdraw at any time without penalty.
+                  <strong>I consent to participate</strong> in this study. 
+                  I understand that my responses will be recorded.
                 </span>
               </label>
             </div>
@@ -204,7 +203,6 @@ export default function Home() {
                 <li>Each problem has positive and negative examples</li>
                 <li>Your task: classify a query image as positive or negative</li>
                 <li>Estimated time: 15-20 minutes</li>
-                <li>Total questions: 40 (10 from each category)</li>
               </ul>
             </div>
 

@@ -24,6 +24,8 @@ export default function QuizPage() {
   const [showDialog, setShowDialog] = useState(false);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
+  const [sessionId, setSessionId] = useState<string | null>(null);
 
   useEffect(() => {
     setLoading(true);
@@ -37,6 +39,11 @@ export default function QuizPage() {
       })
       .finally(() => setLoading(false));
   }, [humanId, group]);
+
+  // Reset question start time when question changes
+  useEffect(() => {
+    setQuestionStartTime(Date.now());
+  }, [index]);
 
   if (loading) {
     return (
@@ -89,16 +96,37 @@ export default function QuizPage() {
   const handleSubmit = async (answer: "positive" | "negative") => {
     setShowDialog(false);
 
-    // TODO: Send answer to API
-    // await fetch('/api/responses', {
-    //   method: 'POST',
-    //   body: JSON.stringify({
-    //     humanId,
-    //     questionId: question.id,
-    //     answer,
-    //     timestamp: Date.now()
-    //   })
-    // });
+    // Calculate reaction time in seconds
+    const reactionTime = (Date.now() - questionStartTime) / 1000;
+
+    // Determine if answer is correct
+    const isCorrect = 
+      (answer === "positive" && question.id.endsWith("_pos")) ||
+      (answer === "negative" && question.id.endsWith("_neg"));
+
+    // Save response to Supabase (if configured)
+    try {
+      const response = await fetch('/api/responses', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          participant_id: humanId,
+          session_id: sessionId || 'temp-session',
+          question_id: question.id,
+          category: question.category,
+          answer,
+          is_correct: isCorrect,
+          reaction_time: reactionTime,
+          question_number: index + 1,
+        })
+      });
+
+      if (!response.ok) {
+        console.warn('Failed to save response:', await response.text());
+      }
+    } catch (err) {
+      console.warn('Error saving response (Supabase might not be configured):', err);
+    }
 
     // Move to next question
     setIndex((i) => i + 1);
@@ -114,13 +142,13 @@ export default function QuizPage() {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-zinc-50">
-      <QuizHeader concept={question.concept} pid={humanId as string} />
+      <QuizHeader concept={question.concept} pid={humanId as string} group={group} />
 
       <main className="flex-1 overflow-auto p-6 space-y-6 h-full">
         {/* Debug info - remove in production */}
-        <div className="text-xs text-gray-400 bg-gray-100 p-2 rounded">
+        {/* <div className="text-xs text-gray-400 bg-gray-100 p-2 rounded">
           Question: {question.id} | Category: {question.category} | Query: {question.queryImage.slice(-40)}
-        </div>
+        </div> */}
         
         <div className="grid grid-cols-2 gap-6">
           <ExampleCard
