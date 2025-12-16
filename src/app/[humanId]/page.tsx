@@ -1,8 +1,10 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { useState } from "react";
-import { QUIZ } from "@/lib/quiz-data";
+import { loadQuiz } from "@/lib/loaders/load-quiz";
+import { QuizQuestion } from "@/lib/types"
+
 import { QuizHeader } from "@/components/quiz/QuizHeader";
 import { ExampleCard } from "@/components/quiz/ExampleCard";
 import { QueryCard } from "@/components/quiz/QueryCard";
@@ -12,22 +14,27 @@ import { Button } from "@/components/ui/button";
 
 export default function QuizPage() {
   const { humanId } = useParams();
+
+  const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
   const [index, setIndex] = useState(0);
   const [showDialog, setShowDialog] = useState(false);
 
-  const question = QUIZ[index];
+  useEffect(() => {
+    loadQuiz().then(setQuiz).catch(console.error);
+  }, []);
+
+  if (!quiz.length) {
+    return (
+      <div className="h-screen flex items-center justify-center">
+        Loading quiz…
+      </div>
+    );
+  }
+
+  const question = quiz[index];
 
   const handleSubmit = async (answer: "positive" | "negative") => {
     setShowDialog(false);
-
-    await fetch("/api/responses", {
-      method: "POST",
-      body: JSON.stringify({
-        human_id: humanId,
-        question_id: question.id,
-        answer,
-      }),
-    });
 
     setIndex((i) => i + 1);
   };
@@ -50,17 +57,12 @@ export default function QuizPage() {
 
         <QueryCard src={question.queryImage} />
 
-        <div className="text-sm text-muted-foreground">
-          Based on the positive and negative examples above, decide which class
-          the query belongs to.
-        </div>
-
         <Button onClick={() => setShowDialog(true)}>
           Submit Response
         </Button>
       </main>
 
-      <ProgressFooter current={index + 1} total={QUIZ.length} />
+      <ProgressFooter current={index + 1} total={quiz.length} />
 
       <SubmitDialog open={showDialog} onSelect={handleSubmit} />
     </div>
