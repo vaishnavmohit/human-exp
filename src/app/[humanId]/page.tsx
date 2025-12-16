@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { useParams } from "next/navigation";
-import { loadQuiz } from "@/lib/loaders/load-quiz";
+import { loadQuiz } from "@/lib/load-quiz";
 import { QuizQuestion } from "@/lib/types"
 
 import { QuizHeader } from "@/components/quiz/QuizHeader";

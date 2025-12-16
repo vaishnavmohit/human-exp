@@ -1,4 +1,4 @@
-import { BongardRawItem, QuizQuestion } from "../types";
+import { BongardRawItem, QuizQuestion } from "./types";
 
 export async function loadQuiz(): Promise<QuizQuestion[]> {
   const res = await fetch(
