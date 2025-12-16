@@ -109,17 +109,27 @@ function bongardToQuizQuestion(
     id: item.test_id,
     concept: item.concept_ui || item.concept,
     category: category,
-    positiveImages: item.images.pos.map(path => toPublicImagePath(path, config.image_base_path)),
-    negativeImages: item.images.neg.map(path => toPublicImagePath(path, config.image_base_path)),
-    queryImage: toPublicImagePath(queryImage, config.image_base_path),
+    positiveImages: item.images.pos.map(path => toPublicImagePath(path, config.image_base_path, category)),
+    negativeImages: item.images.neg.map(path => toPublicImagePath(path, config.image_base_path, category)),
+    queryImage: toPublicImagePath(queryImage, config.image_base_path, category),
   };
 }
 
 /**
  * Convert relative path to public URL path
  */
-function toPublicImagePath(path: string, basePath: string): string {
-  return `${basePath}/${path}`;
+function toPublicImagePath(path: string, basePath: string, category?: string): string {
+  // Metadata paths may reference a generic 'hd' category (e.g. "hd/images/...")
+  // while in the public folder we have more specific folders like `hd_novel` or `hd_comb`.
+  // If a category override is provided and the path starts with 'hd/', rewrite it.
+  let adjustedPath = path;
+
+  if (category && (/^\/?hd\//.test(path))) {
+    // Replace leading 'hd/' or '/hd/' with the configured category name (e.g. 'hd_novel/')
+    adjustedPath = path.replace(/^\/?hd\//, `${category}/`);
+  }
+
+  return `${basePath}/${adjustedPath}`;
 }
 
 /**

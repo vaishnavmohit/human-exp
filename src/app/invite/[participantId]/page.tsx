@@ -2,53 +2,119 @@
 
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+// Initialize Supabase client (uses env vars)
+const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
+const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
+const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
 
 /**
  * Invite Link Handler
  * 
- * Similar to Flask app's /invite/<participant_id> route
- * Redirects to quiz with participant ID and group
+ * Handles both:
+ * 1. Direct participant IDs: /invite/pid_12345
+ * 2. Invite codes: /invite/ABC123XY (from database)
  * 
- * URL: /invite/[participantId]
- * Redirects to: /[participantId]?group=[group]
+ * Redirects to quiz with participant ID and group
  */
 export default function InvitePage() {
   const params = useParams();
   const router = useRouter();
   const [error, setError] = useState<string | null>(null);
+  const [status, setStatus] = useState<string>("Processing your invite...");
 
-  const participantId = params.participantId as string;
+  const inviteParam = params.participantId as string;
 
   useEffect(() => {
     async function handleInvite() {
       try {
-        // TODO: In future, fetch participant info from Supabase
-        // For now, we'll extract group from participant_id or use default
+        // Check if Supabase is configured
+        if (!supabase) {
+          console.log('Supabase not configured, using direct mode');
+          // Fallback: treat inviteParam as participant_id directly
+          router.push(`/${inviteParam}?group=1`);
+          return;
+        }
+
+        // First, check if it's an invite code (shorter, alphanumeric)
+        if (inviteParam.length <= 12 && !inviteParam.startsWith('pid_')) {
+          setStatus("Looking up invite code...");
+          
+          const { data: invite, error: inviteError } = await supabase
+            .from('invites')
+            .select('participant_id, assigned_group, used, expires_at')
+            .eq('invite_code', inviteParam.toUpperCase())
+            .single();
+          
+          if (invite && !inviteError) {
+            // Check if invite is expired
+            if (invite.expires_at && new Date(invite.expires_at) < new Date()) {
+              setError('This invite link has expired. Please contact the study administrator.');
+              return;
+            }
+            
+            // Check if already used (optional - you might want to allow reuse)
+            if (invite.used) {
+              // Still allow access, just proceed
+              console.log('Invite already used, but allowing access');
+            }
+            
+            // Mark invite as used
+            await supabase
+              .from('invites')
+              .update({ used: true, used_at: new Date().toISOString() })
+              .eq('invite_code', inviteParam.toUpperCase());
+            
+            setStatus("Redirecting to quiz...");
+            router.push(`/${invite.participant_id}?group=${invite.assigned_group}`);
+            return;
+          }
+        }
         
-        // Check if participant exists in database
-        // const { data, error } = await supabase
-        //   .from('participants')
-        //   .select('participant_id, group')
-        //   .eq('participant_id', participantId)
-        //   .single();
+        // Try as participant_id directly
+        setStatus("Looking up participant...");
         
-        // For now, default to group 1
-        // In production, this should come from database
-        const defaultGroup = 1;
+        const { data: participant, error: participantError } = await supabase
+          .from('participants')
+          .select('participant_id, assigned_group')
+          .eq('participant_id', inviteParam)
+          .single();
         
-        // Redirect to quiz with participant ID and group
-        router.push(`/${participantId}?group=${defaultGroup}`);
+        if (participant && !participantError) {
+          setStatus("Redirecting to quiz...");
+          router.push(`/${participant.participant_id}?group=${participant.assigned_group}`);
+          return;
+        }
+        
+        // Also try looking up by email (in case invite param is an email)
+        const { data: byEmail } = await supabase
+          .from('participants')
+          .select('participant_id, assigned_group')
+          .eq('email', inviteParam.toLowerCase())
+          .single();
+        
+        if (byEmail) {
+          setStatus("Redirecting to quiz...");
+          router.push(`/${byEmail.participant_id}?group=${byEmail.assigned_group}`);
+          return;
+        }
+        
+        // If nothing found in database, allow direct access with defaults
+        console.log('Participant not found in database, using direct mode');
+        router.push(`/${inviteParam}?group=1`);
         
       } catch (err) {
         console.error('Error handling invite:', err);
-        setError('Failed to process invite link');
+        // On any error, try direct mode as fallback
+        router.push(`/${inviteParam}?group=1`);
       }
     }
 
-    if (participantId) {
+    if (inviteParam) {
       handleInvite();
     }
-  }, [participantId, router]);
+  }, [inviteParam, router]);
 
   if (error) {
     return (
@@ -71,8 +137,8 @@ export default function InvitePage() {
     <div className="min-h-screen flex flex-col items-center justify-center bg-zinc-50">
       <div className="text-center">
         <div className="animate-pulse text-2xl mb-4">🔄</div>
-        <p className="text-gray-600">Processing your invite...</p>
-        <p className="text-sm text-gray-400 mt-2">Participant: {participantId}</p>
+        <p className="text-gray-600">{status}</p>
+        <p className="text-sm text-gray-400 mt-2">Invite: {inviteParam}</p>
       </div>
     </div>
   );

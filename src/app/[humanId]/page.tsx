@@ -104,11 +104,24 @@ export default function QuizPage() {
     setIndex((i) => i + 1);
   };
 
+  // Debug: Log image paths in development
+  if (process.env.NODE_ENV === 'development') {
+    console.log('Question:', question.id);
+    console.log('Query Image:', question.queryImage);
+    console.log('Positive Images:', question.positiveImages.slice(0, 2));
+    console.log('Negative Images:', question.negativeImages.slice(0, 2));
+  }
+
   return (
     <div className="h-screen w-screen flex flex-col bg-zinc-50">
       <QuizHeader concept={question.concept} pid={humanId as string} />
 
       <main className="flex-1 overflow-auto p-6 space-y-6 h-full">
+        {/* Debug info - remove in production */}
+        <div className="text-xs text-gray-400 bg-gray-100 p-2 rounded">
+          Question: {question.id} | Category: {question.category} | Query: {question.queryImage.slice(-40)}
+        </div>
+        
         <div className="grid grid-cols-2 gap-6">
           <ExampleCard
             title="Positive Examples"

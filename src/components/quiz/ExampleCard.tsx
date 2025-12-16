@@ -21,11 +21,15 @@ export function ExampleCard({
             key={i}
             className="relative aspect-square border rounded bg-white"
           >
-            <Image
+            {/* Using img tag for better compatibility with local files */}
+            <img
               src={src}
-              alt={title}
-              fill
-              className="object-contain p-2"
+              alt={`${title} ${i + 1}`}
+              className="object-contain p-2 w-full h-full"
+              onError={(e) => {
+                console.error(`Failed to load image: ${src}`);
+                (e.target as HTMLImageElement).src = '/file.svg'; // fallback
+              }}
             />
           </div>
         ))}

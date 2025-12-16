@@ -1,5 +1,4 @@
 // components/quiz/QueryCard.tsx
-import Image from "next/image";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function QueryCard({ src }: { src: string }) {
@@ -17,8 +16,16 @@ export function QueryCard({ src }: { src: string }) {
       </CardHeader>
 
       <CardContent className="flex justify-center">
-        <div className="relative w-64 h-64 border rounded bg-white">
-          <Image src={src} alt="query" fill className="object-contain p-4" />
+        <div className="relative w-64 h-64 border rounded bg-white flex items-center justify-center">
+          <img 
+            src={src} 
+            alt="query" 
+            className="object-contain p-4 max-w-full max-h-full" 
+            onError={(e) => {
+              console.error(`Failed to load query image: ${src}`);
+              (e.target as HTMLImageElement).src = '/file.svg';
+            }}
+          />
         </div>
       </CardContent>
     </Card>
