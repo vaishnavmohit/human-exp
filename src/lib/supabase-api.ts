@@ -161,4 +161,55 @@ export async function getParticipantResponses(participant_id: string) {
 	return data;
 }
 
+/**
+ * Get responses for a specific session
+ */
+export async function getSessionResponses(session_id: string) {
+	const { data, error } = await db
+		.from("responses")
+		.select("*")
+		.eq("session_id", session_id)
+		.order("created_at", { ascending: true });
+
+	if (error) throw error;
+	return data;
+}
+
+/**
+ * Check if participant has an active (incomplete) session
+ * Returns the session with progress info
+ */
+export async function getIncompleteSession(participant_id: string) {
+	const { data, error } = await db
+		.from("sessions")
+		.select("*")
+		.eq("participant_id", participant_id)
+		.eq("completed", false)
+		.order("started_at", { ascending: false })
+		.limit(1)
+		.single();
+
+	if (error && error.code !== "PGRST116") throw error;
+	return data;
+}
+
+/**
+ * Mark session as completed
+ */
+export async function completeSession(session_id: string) {
+	const { data, error } = await db
+		.from("sessions")
+		.update({ 
+			completed: true,
+			completed_at: new Date().toISOString(),
+			last_activity_at: new Date().toISOString()
+		})
+		.eq("id", session_id)
+		.select()
+		.single();
+
+	if (error) throw error;
+	return data;
+}
+
 export default db;

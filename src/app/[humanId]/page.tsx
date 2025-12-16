@@ -26,6 +26,7 @@ export default function QuizPage() {
   const [error, setError] = useState<string | null>(null);
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
   const [sessionId, setSessionId] = useState<string | null>(null);
+  const [isResumed, setIsResumed] = useState(false);
 
   useEffect(() => {
     const initializeQuiz = async () => {
@@ -54,30 +55,71 @@ export default function QuizPage() {
             console.warn('Failed to create participant:', await participantRes.text());
           }
 
-          // 2. Create session with question assignment
-          const questionIds = questions.map(q => q.id);
-          const categoryMap = questions.reduce((acc, q) => {
-            acc[q.id] = q.category;
-            return acc;
-          }, {} as Record<string, string>);
+          // 2. Check for existing incomplete session (RESUME FUNCTIONALITY)
+          console.log('🔍 Checking for incomplete session...');
+          const checkSessionRes = await fetch(`/api/sessions/resume?participant_id=${humanId}`);
+          
+          let resumedSession = null;
+          if (checkSessionRes.ok) {
+            const checkData = await checkSessionRes.json();
+            if (checkData.data && !checkData.data.completed) {
+              resumedSession = checkData.data;
+              console.log('🔄 Found incomplete session - resuming...', resumedSession.id);
+            }
+          }
 
-          const sessionRes = await fetch('/api/sessions', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-              participant_id: humanId,
-              total_questions: questions.length,
-              assignment_json: questionIds,
-              category_map: categoryMap,
-            })
-          });
+          let currentSessionId = null;
 
-          if (sessionRes.ok) {
-            const sessionData = await sessionRes.json();
-            setSessionId(sessionData.data.id);
-            console.log('✅ Session created:', sessionData.data.id);
+          if (resumedSession) {
+            // Resume existing session
+            currentSessionId = resumedSession.id;
+            setSessionId(currentSessionId);
+            setIsResumed(true);
+            
+            // Get responses for this session to determine progress
+            const responsesRes = await fetch(`/api/sessions/${currentSessionId}/responses`);
+            if (responsesRes.ok) {
+              const responsesData = await responsesRes.json();
+              const answeredCount = responsesData.data?.length || 0;
+              
+              // Resume from where they left off
+              setIndex(answeredCount);
+              console.log(`✅ Resuming from question ${answeredCount + 1}/${questions.length}`);
+              
+              // Update session's current_index
+              await fetch(`/api/sessions/${currentSessionId}`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ current_index: answeredCount })
+              });
+            }
           } else {
-            console.warn('Failed to create session:', await sessionRes.text());
+            // Create new session
+            const questionIds = questions.map(q => q.id);
+            const categoryMap = questions.reduce((acc, q) => {
+              acc[q.id] = q.category;
+              return acc;
+            }, {} as Record<string, string>);
+
+            const sessionRes = await fetch('/api/sessions', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({
+                participant_id: humanId,
+                total_questions: questions.length,
+                assignment_json: questionIds,
+                category_map: categoryMap,
+              })
+            });
+
+            if (sessionRes.ok) {
+              const sessionData = await sessionRes.json();
+              currentSessionId = sessionData.data.id;
+              setSessionId(currentSessionId);
+              console.log('✅ New session created:', currentSessionId);
+            } else {
+              console.warn('Failed to create session:', await sessionRes.text());
+            }
           }
         } catch (dbError) {
           console.warn('Supabase setup incomplete - responses will not be saved:', dbError);
@@ -105,6 +147,11 @@ export default function QuizPage() {
         <div className="text-sm text-gray-500">
           Participant: {humanId} | Group: {group}
         </div>
+        {isResumed && (
+          <div className="text-sm text-blue-600 font-medium">
+            🔄 Resuming previous session...
+          </div>
+        )}
       </div>
     );
   }
@@ -179,6 +226,26 @@ export default function QuizPage() {
           console.error('Failed to save response:', await response.text());
         } else {
           console.log('✅ Response saved:', question.id);
+        }
+
+        // Update session progress
+        const newIndex = index + 1;
+        await fetch(`/api/sessions/${sessionId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            current_index: newIndex,
+            progress: Math.round((newIndex / quiz.length) * 100)
+          })
+        });
+
+        // Check if this was the last question
+        if (newIndex >= quiz.length) {
+          console.log('🎉 Quiz completed - marking session as complete');
+          await fetch(`/api/sessions/${sessionId}/complete`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+          });
         }
       } catch (err) {
         console.error('Error saving response:', err);
