@@ -29,6 +29,8 @@ export type Session = {
 	assignment_json?: string;
 	category_map?: string;
 	progress?: number;
+	current_index?: number;
+	completed?: boolean;
 	started_at?: string;
 	last_activity_at?: string;
 };
