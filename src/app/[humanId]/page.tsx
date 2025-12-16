@@ -43,7 +43,7 @@ export default function QuizPage() {
     <div className="h-screen w-screen flex flex-col bg-zinc-50">
       <QuizHeader concept={question.concept} pid={humanId as string} />
 
-      <main className="flex-1 overflow-auto p-6 space-y-6">
+      <main className="flex-1 overflow-auto p-6 space-y-6 h-full">
         <div className="grid grid-cols-2 gap-6">
           <ExampleCard
             title="Positive Examples"
@@ -62,9 +62,9 @@ export default function QuizPage() {
         </Button>
       </main>
 
-      <ProgressFooter current={index + 1} total={quiz.length} />
 
       <SubmitDialog open={showDialog} onSelect={handleSubmit} />
+      <ProgressFooter current={index + 1} total={quiz.length} />
     </div>
   );
 }

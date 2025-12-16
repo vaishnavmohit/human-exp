@@ -10,9 +10,9 @@ export function ExampleCard({
   images: string[];
 }) {
   return (
-    <Card className="flex-1">
+    <Card className="flex-1 gap-2">
       <CardHeader>
-        <CardTitle className="text-sm">{title}</CardTitle>
+        <CardTitle className="text-lg">{title}</CardTitle>
       </CardHeader>
 
       <CardContent className="grid grid-cols-3 gap-4">
