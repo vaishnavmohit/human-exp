@@ -10,7 +10,9 @@ export async function POST(
   { params }: { params: { sessionId: string } }
 ) {
   try {
-    const { sessionId } = params;
+    // `params` can be a Promise in Next.js route handlers; unwrap it first
+    const p = await params as any;
+    const { sessionId } = p;
 
     const session = await completeSession(sessionId);
 

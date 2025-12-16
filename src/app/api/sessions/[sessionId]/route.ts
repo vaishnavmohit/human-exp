@@ -10,7 +10,9 @@ export async function PATCH(
   { params }: { params: { sessionId: string } }
 ) {
   try {
-    const { sessionId } = params;
+    // `params` can be a Promise in Next.js route handlers; unwrap it first
+    const p = await params as any;
+    const { sessionId } = p;
     const body = await request.json();
 
     const session = await updateSession(sessionId, body);
