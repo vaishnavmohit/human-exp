@@ -54,16 +54,19 @@ export default function QuizPage() {
             images={question.negativeImages}
           />
         </div>
+        <div className="flex flex-row gap-4 w-full items-center">
 
         <QueryCard src={question.queryImage} />
 
-        <Button onClick={() => setShowDialog(true)}>
+        <Button onClick={() => setShowDialog(true)} className="h-10">
           Submit Response
         </Button>
+        </div>
+
       </main>
 
 
-      <SubmitDialog open={showDialog} onSelect={handleSubmit} />
+      <SubmitDialog open={showDialog} onSelect={handleSubmit} onClose={() => setShowDialog(false)} />
       <ProgressFooter current={index + 1} total={quiz.length} />
     </div>
   );

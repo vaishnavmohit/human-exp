@@ -12,12 +12,14 @@ import { Button } from "@/components/ui/button";
 export function SubmitDialog({
   open,
   onSelect,
+  onClose
 }: {
   open: boolean;
   onSelect: (value: "positive" | "negative") => void;
+  onClose: () => void;
 }) {
   return (
-    <Dialog open={open}>
+    <Dialog open={open} onOpenChange={onClose}>
       <DialogContent>
         <DialogHeader>
           <DialogTitle>Choose classification</DialogTitle>

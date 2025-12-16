@@ -4,7 +4,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export function QueryCard({ src }: { src: string }) {
   return (
-    <Card className="gap-2">
+    <Card className="gap-2 flex-1 w-full">
       <CardHeader>
         <CardTitle className="flex gap-1 items-center">
          <span className="text-lg">Query Image - </span>
