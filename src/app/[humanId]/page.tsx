@@ -28,6 +28,19 @@ export default function QuizPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isResumed, setIsResumed] = useState(false);
 
+  // Utility: find next index in `questions` whose question.id is not in answeredSet,
+  // starting at startIndex (inclusive). Returns questions.length if none found.
+  const getNextUnansweredIndex = (
+    questions: QuizQuestion[],
+    answeredSet: Set<string>,
+    startIndex: number
+  ) => {
+    for (let i = startIndex; i < questions.length; i++) {
+      if (!answeredSet.has(questions[i].id)) return i;
+    }
+    return questions.length;
+  };
+
   useEffect(() => {
     const initializeQuiz = async () => {
       setLoading(true);
@@ -80,17 +93,20 @@ export default function QuizPage() {
             const responsesRes = await fetch(`/api/sessions/${currentSessionId}/responses`);
             if (responsesRes.ok) {
               const responsesData = await responsesRes.json();
-              const answeredCount = responsesData.data?.length || 0;
-              
-              // Resume from where they left off
-              setIndex(answeredCount);
-              console.log(`✅ Resuming from question ${answeredCount + 1}/${questions.length}`);
-              
-              // Update session's current_index
+              const responses = responsesData.data || [];
+              // Build a set of answered question IDs
+              const answeredSet = new Set<string>(responses.map((r: any) => r.question_id));
+
+              // Find the next unanswered index in the randomized questions list
+              const nextIndex = getNextUnansweredIndex(questions, answeredSet, 0);
+              setIndex(nextIndex);
+              console.log(`✅ Resuming from question ${nextIndex + 1}/${questions.length}`);
+
+              // Update session's current_index to the computed nextIndex
               await fetch(`/api/sessions/${currentSessionId}`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ current_index: answeredCount })
+                body: JSON.stringify({ current_index: nextIndex })
               });
             }
           } else {
@@ -228,19 +244,50 @@ export default function QuizPage() {
           console.log('✅ Response saved:', question.id);
         }
 
-        // Update session progress
-        const newIndex = index + 1;
-        await fetch(`/api/sessions/${sessionId}`, {
-          method: 'PATCH',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            current_index: newIndex,
-            progress: Math.round((newIndex / quiz.length) * 100)
-          })
-        });
+        // Update session progress.
+        // Compute the next unanswered index using responses fetched from server.
+        let finalIndex = index + 1; // default fallback
+        try {
+          const resList = await fetch(`/api/sessions/${sessionId}/responses`);
+          let answeredSet = new Set<string>();
+          if (resList.ok) {
+            const resJson = await resList.json();
+            const resData = resJson.data || [];
+            answeredSet = new Set<string>(resData.map((r: any) => r.question_id));
+          }
+
+          // Find next unanswered question after the current index
+          const nextIndex = getNextUnansweredIndex(quiz, answeredSet, index + 1);
+          finalIndex = nextIndex;
+
+          // Update session with new current_index and progress computed from finalIndex
+          await fetch(`/api/sessions/${sessionId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              current_index: finalIndex,
+              progress: Math.round((finalIndex / quiz.length) * 100)
+            })
+          });
+
+          // Move UI to the computed next index
+          setIndex(finalIndex);
+        } catch (e) {
+          // Fallback: simple increment if something goes wrong
+          finalIndex = index + 1;
+          await fetch(`/api/sessions/${sessionId}`, {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+              current_index: finalIndex,
+              progress: Math.round((finalIndex / quiz.length) * 100)
+            })
+          });
+          setIndex(finalIndex);
+        }
 
         // Check if this was the last question
-        if (newIndex >= quiz.length) {
+        if (finalIndex >= quiz.length) {
           console.log('🎉 Quiz completed - marking session as complete');
           await fetch(`/api/sessions/${sessionId}/complete`, {
             method: 'POST',

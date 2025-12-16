@@ -137,14 +137,33 @@ export async function updateSession(
  * Save a response
  */
 export async function saveResponse(response: Omit<Response, "id">) {
-	const { data, error } = await db
-		.from("responses")
-		.insert(response)
-		.select()
-		.single();
+	// Check if a response for the same session + question + participant already exists.
+	// If it does, return the existing record instead of inserting a duplicate.
+	try {
+		const { data: existing, error: selErr } = await db
+			.from("responses")
+			.select("*")
+			.eq("session_id", response.session_id)
+			.eq("question_id", response.question_id)
+			.eq("participant_id", response.participant_id)
+			.limit(1)
+			.single();
 
-	if (error) throw error;
-	return data;
+		if (selErr && selErr.code !== "PGRST116") throw selErr;
+		if (existing) return existing;
+
+		const { data, error } = await db
+			.from("responses")
+			.insert(response)
+			.select()
+			.single();
+
+		if (error) throw error;
+		return data;
+	} catch (err) {
+		// Bubble up errors to caller
+		throw err;
+	}
 }
 
 /**
