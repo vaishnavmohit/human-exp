@@ -228,8 +228,8 @@ export default function Home() {
           <p>Have an invite link? It will automatically start your session.</p>
           <p className="mt-2">
             Questions? Contact:{" "}
-            <a href="mailto:research@taltech.ee" className="text-blue-600 hover:underline">
-              research@taltech.ee
+            <a href="mailto:mohit@taltech.ee" className="text-blue-600 hover:underline">
+              mohit@taltech.ee
             </a>
           </p>
         </div>
