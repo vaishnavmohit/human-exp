@@ -11,29 +11,45 @@ export async function loadQuiz(): Promise<QuizQuestion[]> {
   }
   
   const raw: BongardRawItem[] = await res.json();
-  console.log("json response from loadQuiz, file name is test_bd_balanced_500_with_desc.json", raw)
 
   return raw.map(bongardToQuizQuestion);
 }
 
 
-export function bongardToQuizQuestion(
+ function bongardToQuizQuestion(
   item: BongardRawItem
 ): QuizQuestion {
-  // console.log("item from for test files images", (item.images.testfiles))
-  // console.log("other files that are okay", item.images.pos)
+  toQueryImage(item.test_id, item.images.pos[0])
   return {
     id: item.test_id,
     concept: item.concept_ui,
     positiveImages: item.images.pos.map(toPublicImagePath),
     negativeImages: item.images.neg.map(toPublicImagePath),
-    queryImage: toPublicImagePath(item.images.testfiles),
+    queryImage: toPublicImagePath(toQueryImage(item.test_id, item.images.pos[0])),
   };
 }
 
-
 // lib/utils/paths.ts
-export function toPublicImagePath(path: string) {
-    return `/ShapeBongard/${path}`;
-  }
+function toPublicImagePath(path: string) {
+  return `/ShapeBongard/${path}`;
+}
+
+const toQueryImage = (test_id: string, positiveImage: string) => {
+  console.log("test_id from toQueryImage", test_id);
+  console.log("positiveImage from toQueryImage", positiveImage);
+
+  // Determine neg / pos
+  const isNeg = test_id.includes("_neg");
+  const classFolder = isNeg ? "0" : "1";
+
+  // Remove everything after the class folder
+  // bd/images/..._0000/1/0.png  →  bd/images/..._0000
+  const basePath = positiveImage.split("/").slice(0, -2).join("/");
+
+  // Final image
+  const queryImage = `${basePath}/${classFolder}/6.png`;
+
+  return queryImage;
+};
+
   
