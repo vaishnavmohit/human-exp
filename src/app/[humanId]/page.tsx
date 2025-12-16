@@ -28,16 +28,69 @@ export default function QuizPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
 
   useEffect(() => {
-    setLoading(true);
-    setError(null);
-    
-    loadQuiz(humanId as string, group)
-      .then(setQuiz)
-      .catch((err) => {
+    const initializeQuiz = async () => {
+      setLoading(true);
+      setError(null);
+      
+      try {
+        // Load quiz questions
+        const questions = await loadQuiz(humanId as string, group);
+        setQuiz(questions);
+
+        // Create participant and session in Supabase
+        try {
+          // 1. Create/update participant
+          const participantRes = await fetch('/api/participants', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              participant_id: humanId,
+              assigned_group: group,
+              consent: true,
+            })
+          });
+
+          if (!participantRes.ok) {
+            console.warn('Failed to create participant:', await participantRes.text());
+          }
+
+          // 2. Create session with question assignment
+          const questionIds = questions.map(q => q.id);
+          const categoryMap = questions.reduce((acc, q) => {
+            acc[q.id] = q.category;
+            return acc;
+          }, {} as Record<string, string>);
+
+          const sessionRes = await fetch('/api/sessions', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              participant_id: humanId,
+              total_questions: questions.length,
+              assignment_json: questionIds,
+              category_map: categoryMap,
+            })
+          });
+
+          if (sessionRes.ok) {
+            const sessionData = await sessionRes.json();
+            setSessionId(sessionData.data.id);
+            console.log('✅ Session created:', sessionData.data.id);
+          } else {
+            console.warn('Failed to create session:', await sessionRes.text());
+          }
+        } catch (dbError) {
+          console.warn('Supabase setup incomplete - responses will not be saved:', dbError);
+        }
+      } catch (err: any) {
         console.error('Failed to load quiz:', err);
         setError(err.message || 'Failed to load quiz');
-      })
-      .finally(() => setLoading(false));
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    initializeQuiz();
   }, [humanId, group]);
 
   // Reset question start time when question changes
@@ -104,28 +157,34 @@ export default function QuizPage() {
       (answer === "positive" && question.id.endsWith("_pos")) ||
       (answer === "negative" && question.id.endsWith("_neg"));
 
-    // Save response to Supabase (if configured)
-    try {
-      const response = await fetch('/api/responses', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          participant_id: humanId,
-          session_id: sessionId || 'temp-session',
-          question_id: question.id,
-          category: question.category,
-          answer,
-          is_correct: isCorrect,
-          reaction_time: reactionTime,
-          question_number: index + 1,
-        })
-      });
+    // Save response to Supabase (only if session exists)
+    if (sessionId) {
+      try {
+        const response = await fetch('/api/responses', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            participant_id: humanId,
+            session_id: sessionId,
+            question_id: question.id,
+            category: question.category,
+            answer,
+            is_correct: isCorrect,
+            reaction_time: reactionTime,
+            question_number: index + 1,
+          })
+        });
 
-      if (!response.ok) {
-        console.warn('Failed to save response:', await response.text());
+        if (!response.ok) {
+          console.error('Failed to save response:', await response.text());
+        } else {
+          console.log('✅ Response saved:', question.id);
+        }
+      } catch (err) {
+        console.error('Error saving response:', err);
       }
-    } catch (err) {
-      console.warn('Error saving response (Supabase might not be configured):', err);
+    } else {
+      console.warn('⚠️ No session ID - response not saved');
     }
 
     // Move to next question
