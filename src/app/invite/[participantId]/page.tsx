@@ -1,10 +1,8 @@
 "use client";
 
-import { createSupabaseClient } from "@/lib/supabase-server";
+import { createBrowserSupabaseClient } from "@/lib/supabase-client";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-
-const supabase = await createSupabaseClient();
 
 /**
  * Invite Link Handler
@@ -26,9 +24,12 @@ export default function InvitePage() {
   useEffect(() => {
     async function handleInvite() {
       try {
+        // Create Supabase client
+        const supabase = createBrowserSupabaseClient();
+        
         // Check if Supabase is configured
         if (!supabase) {
-          //console.log('Supabase not configured, using direct mode');
+          console.log('Supabase not configured, using direct mode');
           // Fallback: treat inviteParam as participant_id directly
           router.push(`/${inviteParam}?group=1`);
           return;

@@ -1,11 +1,15 @@
 
 import { createSupabaseClient } from "./supabase-server";
 
-// Prefer a server-side Supabase client (service role) when available.
-const db = await createSupabaseClient();
+// Lazy initialization of Supabase client
+let dbInstance: Awaited<ReturnType<typeof createSupabaseClient>> | null = null;
 
-
-// Use server client when running on the server (API routes), otherwise fall back to public client.
+async function getDb() {
+	if (!dbInstance) {
+		dbInstance = await createSupabaseClient();
+	}
+	return dbInstance;
+}
 
 
 // Basic types used in the helpers
@@ -54,6 +58,7 @@ export type Response = {
  * Upsert a participant by participant_id
  */
 export async function upsertParticipant(p: Participant) {
+	const db = await getDb();
 	const { data, error } = await db
 		.from("participants")
 		.upsert(p, { onConflict: "participant_id" })
@@ -65,6 +70,7 @@ export async function upsertParticipant(p: Participant) {
 }
 
 export async function getParticipant(participant_id: string) {
+	const db = await getDb();
 	const { data, error } = await db
 		.from("participants")
 		.select("*")
@@ -79,6 +85,7 @@ export async function getParticipant(participant_id: string) {
  * Create a session for a participant
  */
 export async function createSession(s: Session) {
+	const db = await getDb();
 	const now = new Date().toISOString();
 	const payload = {
 		...s,
@@ -97,6 +104,7 @@ export async function createSession(s: Session) {
 }
 
 export async function getActiveSession(participant_id: string) {
+	const db = await getDb();
 	const { data, error } = await db
 		.from("sessions")
 		.select("*")
@@ -116,6 +124,7 @@ export async function updateSession(
 	session_id: string,
 	updates: Partial<Session>
 ) {
+	const db = await getDb();
 	const { data, error } = await db
 		.from("sessions")
 		.update({ ...updates, last_activity_at: new Date().toISOString() })
@@ -131,6 +140,7 @@ export async function updateSession(
  * Save a response
  */
 export async function saveResponse(response: Omit<Response, "id">) {
+	const db = await getDb();
 	// Check if a response for the same session + question + participant already exists.
 	// If it does, return the existing record instead of inserting a duplicate.
 	try {
@@ -165,6 +175,7 @@ export async function saveResponse(response: Omit<Response, "id">) {
  * Get all responses for a participant
  */
 export async function getParticipantResponses(participant_id: string) {
+	const db = await getDb();
 	const { data, error } = await db
 		.from("responses")
 		.select("*")
@@ -179,6 +190,7 @@ export async function getParticipantResponses(participant_id: string) {
  * Get responses for a specific session
  */
 export async function getSessionResponses(session_id: string) {
+	const db = await getDb();
 	const { data, error } = await db
 		.from("responses")
 		.select("*")
@@ -194,6 +206,7 @@ export async function getSessionResponses(session_id: string) {
  * Returns the session with progress info
  */
 export async function getIncompleteSession(participant_id: string) {
+	const db = await getDb();
 	const { data, error } = await db
 		.from("sessions")
 		.select("*")
@@ -211,6 +224,7 @@ export async function getIncompleteSession(participant_id: string) {
  * Mark session as completed
  */
 export async function completeSession(session_id: string) {
+	const db = await getDb();
 	const { data, error } = await db
 		.from("sessions")
 		.update({ 
@@ -226,4 +240,5 @@ export async function completeSession(session_id: string) {
 	return data;
 }
 
-export default db;
+// Export getDb for direct database access when needed
+export { getDb };
