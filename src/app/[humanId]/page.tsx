@@ -16,8 +16,8 @@ export default function QuizPage() {
   const { humanId } = useParams();
   const searchParams = useSearchParams();
   
-  // Get group from URL params (default to 1 if not specified)
-  const group = parseInt(searchParams.get('group') || '1', 10);
+  // Group will be auto-detected from participant record or use URL param as fallback
+  const urlGroup = searchParams.get('group') ? parseInt(searchParams.get('group')!, 10) : null;
 
   const [quiz, setQuiz] = useState<QuizQuestion[]>([]);
   const [index, setIndex] = useState(0);
@@ -27,6 +27,7 @@ export default function QuizPage() {
   const [questionStartTime, setQuestionStartTime] = useState<number>(Date.now());
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isResumed, setIsResumed] = useState(false);
+  const [assignedGroup, setAssignedGroup] = useState<number | null>(null); // Actual group from DB
 
   // Utility: find next index in `questions` whose question.id is not in answeredSet,
   // starting at startIndex (inclusive). Returns questions.length if none found.
@@ -47,101 +48,137 @@ export default function QuizPage() {
       setError(null);
       
       try {
-        // Load quiz questions
-        const questions = await loadQuiz(humanId as string, group);
+        // STEP 1: Check if participant exists and get their assigned group
+        console.log('🔍 Checking participant registration...');
+        const participantCheckRes = await fetch(`/api/participants?participant_id=${humanId}`);
+        
+        let detectedGroup: number | null = null;
+        let participantExists = false;
+        
+        if (participantCheckRes.ok) {
+          const participantData = await participantCheckRes.json();
+          if (participantData.data) {
+            participantExists = true;
+            detectedGroup = participantData.data.assigned_group;
+            console.log(`✅ Participant found with group ${detectedGroup}`);
+            setAssignedGroup(detectedGroup);
+          }
+        }
+        
+        // If participant doesn't exist, show registration error
+        if (!participantExists) {
+          setError(
+            `Participant "${humanId}" is not registered. Please register first or contact the administrator.`
+          );
+          setLoading(false);
+          return;
+        }
+        
+        // STEP 2: Determine which group to use
+        // Priority: Database group > URL group
+        const finalGroup = detectedGroup!;
+        
+        // If URL has group param and it doesn't match, redirect
+        if (urlGroup !== null && urlGroup !== finalGroup) {
+          console.warn(
+            `⚠️ URL group (${urlGroup}) doesn't match assigned group (${finalGroup}). Redirecting...`
+          );
+          setError(`Redirecting to your assigned group ${finalGroup}...`);
+          setTimeout(() => {
+            window.location.href = `/${humanId}?group=${finalGroup}`;
+          }, 1500);
+          return;
+        }
+        
+        // STEP 3: Load quiz questions for the correct group
+        console.log(`📚 Loading quiz for group ${finalGroup}...`);
+        const questions = await loadQuiz(humanId as string, finalGroup);
         setQuiz(questions);
 
-        // Create participant and session in Supabase
-        try {
-          // 1. Create/update participant
-          const participantRes = await fetch('/api/participants', {
+        // STEP 4: Check for existing incomplete session (RESUME FUNCTIONALITY)
+        console.log('🔍 Checking for incomplete session...');
+        const checkSessionRes = await fetch(`/api/sessions/resume?participant_id=${humanId}`);
+        
+        let resumedSession = null;
+        if (checkSessionRes.ok) {
+          const checkData = await checkSessionRes.json();
+          if (checkData.data && !checkData.data.completed) {
+            resumedSession = checkData.data;
+            console.log('🔄 Found incomplete session - resuming...', resumedSession.id);
+          }
+        }
+
+        let currentSessionId = null;
+
+        if (resumedSession) {
+          // Verify session's assigned_group matches
+          if (resumedSession.assigned_group && resumedSession.assigned_group !== finalGroup) {
+            console.error(
+              `❌ Session group mismatch: Expected ${finalGroup}, ` +
+              `but session has ${resumedSession.assigned_group}`
+            );
+            setError('Session group mismatch. Please contact administrator.');
+            return;
+          }
+          
+          // Resume existing session
+          currentSessionId = resumedSession.id;
+          setSessionId(currentSessionId);
+          setIsResumed(true);
+          
+          // Get responses for this session to determine progress
+          const responsesRes = await fetch(`/api/sessions/${currentSessionId}/responses`);
+          if (responsesRes.ok) {
+            const responsesData = await responsesRes.json();
+            const responses = responsesData.data || [];
+            // Build a set of answered question IDs
+            const answeredSet = new Set<string>(responses.map((r: any) => r.question_id));
+
+            // Find the next unanswered index in the randomized questions list
+            const nextIndex = getNextUnansweredIndex(questions, answeredSet, 0);
+            setIndex(nextIndex);
+            console.log(`✅ Resuming from question ${nextIndex + 1}/${questions.length}`);
+
+            // Update session's current_index to the computed nextIndex
+            await fetch(`/api/sessions/${currentSessionId}`, {
+              method: 'PATCH',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ current_index: nextIndex })
+            });
+          }
+        } else {
+          // Create new session
+          const questionIds = questions.map(q => q.id);
+          const categoryMap = questions.reduce((acc, q) => {
+            acc[q.id] = q.category;
+            return acc;
+          }, {} as Record<string, string>);
+
+          const sessionRes = await fetch('/api/sessions', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
               participant_id: humanId,
-              assigned_group: group,
-              consent: true,
+              assigned_group: finalGroup,
+              total_questions: questions.length,
+              assignment_json: questionIds,
+              category_map: categoryMap,
             })
           });
 
-          if (!participantRes.ok) {
-            console.warn('Failed to create participant:', await participantRes.text());
-          }
-
-          // 2. Check for existing incomplete session (RESUME FUNCTIONALITY)
-          console.log('🔍 Checking for incomplete session...');
-          const checkSessionRes = await fetch(`/api/sessions/resume?participant_id=${humanId}`);
-          
-          let resumedSession = null;
-          if (checkSessionRes.ok) {
-            const checkData = await checkSessionRes.json();
-            if (checkData.data && !checkData.data.completed) {
-              resumedSession = checkData.data;
-              console.log('🔄 Found incomplete session - resuming...', resumedSession.id);
-            }
-          }
-
-          let currentSessionId = null;
-
-          if (resumedSession) {
-            // Resume existing session
-            currentSessionId = resumedSession.id;
+          if (sessionRes.ok) {
+            const sessionData = await sessionRes.json();
+            currentSessionId = sessionData.data.id;
             setSessionId(currentSessionId);
-            setIsResumed(true);
-            
-            // Get responses for this session to determine progress
-            const responsesRes = await fetch(`/api/sessions/${currentSessionId}/responses`);
-            if (responsesRes.ok) {
-              const responsesData = await responsesRes.json();
-              const responses = responsesData.data || [];
-              // Build a set of answered question IDs
-              const answeredSet = new Set<string>(responses.map((r: any) => r.question_id));
-
-              // Find the next unanswered index in the randomized questions list
-              const nextIndex = getNextUnansweredIndex(questions, answeredSet, 0);
-              setIndex(nextIndex);
-              console.log(`✅ Resuming from question ${nextIndex + 1}/${questions.length}`);
-
-              // Update session's current_index to the computed nextIndex
-              await fetch(`/api/sessions/${currentSessionId}`, {
-                method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ current_index: nextIndex })
-              });
-            }
+            console.log('✅ New session created:', currentSessionId);
           } else {
-            // Create new session
-            const questionIds = questions.map(q => q.id);
-            const categoryMap = questions.reduce((acc, q) => {
-              acc[q.id] = q.category;
-              return acc;
-            }, {} as Record<string, string>);
-
-            const sessionRes = await fetch('/api/sessions', {
-              method: 'POST',
-              headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({
-                participant_id: humanId,
-                total_questions: questions.length,
-                assignment_json: questionIds,
-                category_map: categoryMap,
-              })
-            });
-
-            if (sessionRes.ok) {
-              const sessionData = await sessionRes.json();
-              currentSessionId = sessionData.data.id;
-              setSessionId(currentSessionId);
-              console.log('✅ New session created:', currentSessionId);
-            } else {
-              console.warn('Failed to create session:', await sessionRes.text());
-            }
+            const errorText = await sessionRes.text();
+            console.error('Failed to create session:', errorText);
+            throw new Error(`Failed to create session: ${errorText}`);
           }
-        } catch (dbError) {
-          console.warn('Supabase setup incomplete - responses will not be saved:', dbError);
         }
       } catch (err: any) {
-        console.error('Failed to load quiz:', err);
+        console.error('Failed to initialize quiz:', err);
         setError(err.message || 'Failed to load quiz');
       } finally {
         setLoading(false);
@@ -149,19 +186,15 @@ export default function QuizPage() {
     };
 
     initializeQuiz();
-  }, [humanId, group]);
-
-  // Reset question start time when question changes
-  useEffect(() => {
-    setQuestionStartTime(Date.now());
-  }, [index]);
+  }, [humanId, urlGroup]);
 
   if (loading) {
     return (
       <div className="h-screen flex flex-col items-center justify-center gap-4">
         <div className="text-lg">Loading quiz…</div>
         <div className="text-sm text-gray-500">
-          Participant: {humanId} | Group: {group}
+          Participant: {humanId}
+          {assignedGroup && ` | Group: ${assignedGroup}`}
         </div>
         {isResumed && (
           <div className="text-sm text-blue-600 font-medium">
@@ -221,7 +254,7 @@ export default function QuizPage() {
       (answer === "negative" && question.id.endsWith("_neg"));
 
     // Save response to Supabase (only if session exists)
-    if (sessionId) {
+    if (sessionId && assignedGroup) {
       try {
         const response = await fetch('/api/responses', {
           method: 'POST',
@@ -231,6 +264,7 @@ export default function QuizPage() {
             session_id: sessionId,
             question_id: question.id,
             category: question.category,
+            assigned_group: assignedGroup,
             answer,
             is_correct: isCorrect,
             reaction_time: reactionTime,
@@ -301,13 +335,19 @@ export default function QuizPage() {
       console.warn('⚠️ No session ID - response not saved');
     }
 
-    // Move to next question
-    setIndex((i) => i + 1);
+    // For cases where there's no session to persist to, still advance UI by one
+    if (!sessionId) {
+      setIndex((i) => i + 1);
+    }
   };
 
   return (
     <div className="h-screen w-screen flex flex-col bg-zinc-50">
-      <QuizHeader concept={question.concept} pid={humanId as string} group={group} />
+      <QuizHeader 
+        concept={question.concept} 
+        pid={humanId as string} 
+        group={assignedGroup || 1} 
+      />
 
       <main className="flex-1 overflow-auto p-6 space-y-6 h-full">
         {/* Debug info - remove in production */}

@@ -10,6 +10,7 @@ export async function POST(request: NextRequest) {
       session_id,
       question_id,
       category,
+      assigned_group,
       answer,
       is_correct,
       reaction_time,
@@ -18,9 +19,9 @@ export async function POST(request: NextRequest) {
     } = body;
 
     // Validate required fields
-    if (!participant_id || !session_id || !question_id || !category || !answer) {
+    if (!participant_id || !session_id || !question_id || !category || !answer || assigned_group === undefined) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Missing required fields: participant_id, session_id, question_id, category, answer, assigned_group" },
         { status: 400 }
       );
     }
@@ -39,6 +40,7 @@ export async function POST(request: NextRequest) {
       session_id,
       question_id,
       category,
+      assigned_group,
       answer,
       is_correct: is_correct ?? false,
       reaction_time: reaction_time ?? 0,

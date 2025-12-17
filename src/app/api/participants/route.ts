@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { upsertParticipant, getParticipant } from "@/lib/supabase-api";
+import { loadConfig } from "@/lib/config";
 
 export async function POST(request: NextRequest) {
   try {
@@ -24,10 +25,13 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    // Validate group
-    if (assigned_group < 1 || assigned_group > 6) {
+    // Load config and validate group against supported groups
+    const config = await loadConfig();
+    if (!config.supported_groups.includes(assigned_group)) {
       return NextResponse.json(
-        { error: "Invalid group. Must be between 1 and 6" },
+        { 
+          error: `Invalid group ${assigned_group}. Supported groups: ${config.supported_groups.join(', ')}` 
+        },
         { status: 400 }
       );
     }

@@ -2,11 +2,25 @@ import { AppConfig } from "./types";
 
 let cachedConfig: AppConfig | null = null;
 
+/**
+ * Load config - works both client and server side
+ */
 export async function loadConfig(): Promise<AppConfig> {
   if (cachedConfig) {
     return cachedConfig;
   }
 
+  // Server-side: read from filesystem
+  if (typeof window === "undefined") {
+    const { readFileSync } = await import('fs');
+    const { join } = await import('path');
+    const configPath = join(process.cwd(), "public", "config.json");
+    const configData = readFileSync(configPath, "utf-8");
+    cachedConfig = JSON.parse(configData);
+    return cachedConfig!;
+  }
+
+  // Client-side: fetch from public
   const res = await fetch("/config.json", { cache: "no-store" });
   
   if (!res.ok) {

@@ -7,15 +7,16 @@ export async function POST(request: NextRequest) {
     
     const {
       participant_id,
+      assigned_group,
       total_questions,
       assignment_json,
       category_map,
     } = body;
 
     // Validate required fields
-    if (!participant_id || !total_questions || !assignment_json) {
+    if (!participant_id || !assigned_group || !total_questions || !assignment_json) {
       return NextResponse.json(
-        { error: "Missing required fields" },
+        { error: "Missing required fields: participant_id, assigned_group, total_questions, assignment_json" },
         { status: 400 }
       );
     }
@@ -23,6 +24,7 @@ export async function POST(request: NextRequest) {
     // Create new session
     const session = await createSession({
       participant_id,
+      assigned_group,
       total_questions,
       assignment_json,
       category_map,

@@ -24,6 +24,7 @@ export type Participant = {
 export type Session = {
 	id?: string; // uuid
 	participant_id: string;
+	assigned_group: number; // Experimental group (1-6)
 	total_questions?: number;
 	assignment_json?: string;
 	category_map?: string;
@@ -40,6 +41,7 @@ export type Response = {
 	session_id: string;
 	question_id: string;
 	category: string;
+	assigned_group: number; // Experimental group (1-6)
 	answer: string;
 	is_correct?: boolean;
 	reaction_time?: number;

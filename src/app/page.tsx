@@ -34,19 +34,29 @@ export default function Home() {
       // Use provided participant ID, or generate from email/enrollment
       const pid = participantId || email || enrollmentNumber || `pid_${Date.now()}`;
       
-      // TODO: In production, register participant in Supabase
-      // const { data, error } = await supabase
-      //   .from('participants')
-      //   .insert([{
-      //     participant_id: pid,
-      //     email: email || null,
-      //     enrollment_number: enrollmentNumber || null,
-      //     group: selectedGroup,
-      //     consent: consent
-      //   }]);
+      // Register participant in Supabase
+      const registerRes = await fetch('/api/participants', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          participant_id: pid,
+          email: email || null,
+          enrollment_number: enrollmentNumber || null,
+          assigned_group: selectedGroup,
+          consent: consent,
+          share_data: true,
+        })
+      });
 
-      // Navigate to quiz
-      router.push(`/${pid}?group=${selectedGroup}`);
+      if (!registerRes.ok) {
+        const errorData = await registerRes.json();
+        throw new Error(errorData.error || 'Failed to register participant');
+      }
+
+      console.log('✅ Participant registered:', pid);
+
+      // Navigate to quiz (no need to pass group, it will be auto-detected)
+      router.push(`/${pid}`);
     } catch (err) {
       console.error("Error starting quiz:", err);
       setError("Failed to start quiz. Please try again.");
