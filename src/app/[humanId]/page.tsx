@@ -305,14 +305,6 @@ export default function QuizPage() {
     setIndex((i) => i + 1);
   };
 
-  // Debug: Log image paths in development
-  if (process.env.NODE_ENV === 'development') {
-    console.log('Question:', question.id);
-    console.log('Query Image:', question.queryImage);
-    console.log('Positive Images:', question.positiveImages.slice(0, 2));
-    console.log('Negative Images:', question.negativeImages.slice(0, 2));
-  }
-
   return (
     <div className="h-screen w-screen flex flex-col bg-zinc-50">
       <QuizHeader concept={question.concept} pid={humanId as string} group={group} />

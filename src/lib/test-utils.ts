@@ -16,7 +16,7 @@ export async function testQuizLoading() {
   
   try {
     const config = await loadConfig();
-    console.log('📋 Config loaded:', config);
+    //console.log('📋 Config loaded:', config);
     
     // Test with a few different participant IDs
     const testIds = ['test_001', 'test_002', 'test_003'];
@@ -26,13 +26,13 @@ export async function testQuizLoading() {
       
       // Test Group 1
       const quiz1 = await loadQuiz(humanId, 1);
-      console.log(`Group 1: ${quiz1.length} questions`);
-      console.log('First question:', quiz1[0]);
+      //console.log(`Group 1: ${quiz1.length} questions`);
+      //console.log('First question:', quiz1[0]);
       
       // Test Group 4
       const quiz4 = await loadQuiz(humanId, 4);
-      console.log(`Group 4: ${quiz4.length} questions`);
-      console.log('Concept shown:', quiz4[0].concept ? 'Yes' : 'No');
+      //console.log(`Group 4: ${quiz4.length} questions`);
+      //console.log('Concept shown:', quiz4[0].concept ? 'Yes' : 'No');
       
       // Check category distribution
       const categoryCount = quiz1.reduce((acc, q) => {
@@ -40,7 +40,7 @@ export async function testQuizLoading() {
         return acc;
       }, {} as Record<string, number>);
       
-      console.log('Category distribution:', categoryCount);
+      //console.log('Category distribution:', categoryCount);
       
       console.groupEnd();
     }
@@ -54,7 +54,7 @@ export async function testQuizLoading() {
       
       const areIdentical = quiz1a.every((q, i) => q.id === quiz1b[i].id);
       
-      console.log('Same humanId gets identical questions:', areIdentical ? '✅ YES' : '❌ NO');
+      //console.log('Same humanId gets identical questions:', areIdentical ? '✅ YES' : '❌ NO');
       
       console.groupEnd();
     }
@@ -83,9 +83,9 @@ export async function analyzeDistribution(humanId: string, group: number = 1) {
   console.table(byCat);
   
   // Question order (first 10)
-  console.log('First 10 questions:');
+  //console.log('First 10 questions:');
   quiz.slice(0, 10).forEach((q, i) => {
-    console.log(`${i + 1}. [${q.category.toUpperCase()}] ${q.id}`);
+    //console.log(`${i + 1}. [${q.category.toUpperCase()}] ${q.id}`);
   });
   
   console.groupEnd();
@@ -108,13 +108,13 @@ export async function compareParticipants(id1: string, id2: string, group: numbe
   const overlap = quiz1.filter(q => set2.has(q.id));
   const overlapPct = (overlap.length / quiz1.length) * 100;
   
-  console.log(`Total questions P1: ${quiz1.length}`);
-  console.log(`Total questions P2: ${quiz2.length}`);
-  console.log(`Overlap: ${overlap.length} questions (${overlapPct.toFixed(1)}%)`);
+  //console.log(`Total questions P1: ${quiz1.length}`);
+  //console.log(`Total questions P2: ${quiz2.length}`);
+  //console.log(`Overlap: ${overlap.length} questions (${overlapPct.toFixed(1)}%)`);
   
   // Check if order is identical
   const sameOrder = quiz1.every((q, i) => q.id === quiz2[i]?.id);
-  console.log(`Same order: ${sameOrder ? 'Yes' : 'No'}`);
+  //console.log(`Same order: ${sameOrder ? 'Yes' : 'No'}`);
   
   console.groupEnd();
   
@@ -149,7 +149,7 @@ export async function validateConfig() {
     if (missing.length > 0) {
       console.error('❌ Missing fields:', missing);
     } else {
-      console.log('✅ All required fields present');
+      //console.log('✅ All required fields present');
     }
     
     // Check metadata files exist
@@ -159,7 +159,7 @@ export async function validateConfig() {
         const res = await fetch(path);
         if (res.ok) {
           const data = await res.json();
-          console.log(`✅ ${cat}: ${data.length} items`);
+          //console.log(`✅ ${cat}: ${data.length} items`);
         } else {
           console.error(`❌ ${cat}: Failed to load (${res.status})`);
         }
@@ -178,7 +178,7 @@ export async function validateConfig() {
       console.warn('⚠️  No supported groups defined');
     }
     
-    console.log('✅ Configuration validation complete');
+    //console.log('✅ Configuration validation complete');
     
   } catch (error) {
     console.error('❌ Validation failed:', error);
@@ -196,9 +196,9 @@ if (typeof window !== 'undefined') {
     validateConfig
   };
   
-  console.log('🧪 Quiz testing utilities loaded. Use:');
-  console.log('  quizTest.testQuizLoading()');
-  console.log('  quizTest.analyzeDistribution("participant_001")');
-  console.log('  quizTest.compareParticipants("p1", "p2")');
-  console.log('  quizTest.validateConfig()');
+  //console.log('🧪 Quiz testing utilities loaded. Use:');
+  //console.log('  quizTest.testQuizLoading()');
+  //console.log('  quizTest.analyzeDistribution("participant_001")');
+  //console.log('  quizTest.compareParticipants("p1", "p2")');
+  //console.log('  quizTest.validateConfig()');
 }

@@ -28,7 +28,7 @@ export default function InvitePage() {
       try {
         // Check if Supabase is configured
         if (!supabase) {
-          console.log('Supabase not configured, using direct mode');
+          //console.log('Supabase not configured, using direct mode');
           // Fallback: treat inviteParam as participant_id directly
           router.push(`/${inviteParam}?group=1`);
           return;
@@ -54,7 +54,7 @@ export default function InvitePage() {
             // Check if already used (optional - you might want to allow reuse)
             if (invite.used) {
               // Still allow access, just proceed
-              console.log('Invite already used, but allowing access');
+              //console.log('Invite already used, but allowing access');
             }
             
             // Mark invite as used
@@ -98,7 +98,7 @@ export default function InvitePage() {
         }
         
         // If nothing found in database, allow direct access with defaults
-        console.log('Participant not found in database, using direct mode');
+        //console.log('Participant not found in database, using direct mode');
         router.push(`/${inviteParam}?group=1`);
         
       } catch (err) {
