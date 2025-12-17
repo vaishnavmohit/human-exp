@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSessionResponses } from "@/lib/supabase-api";
+import { RouteContext } from "../types";
 
 /**
  * GET /api/sessions/[sessionId]/responses
@@ -7,12 +8,11 @@ import { getSessionResponses } from "@/lib/supabase-api";
  */
 export async function GET(
   request: NextRequest,
-  { params }: { params: { sessionId: string } }
+  { params }: RouteContext
 ) {
   try {
     // `params` can be a Promise in Next.js route handlers; unwrap it first
-    const p = await params as any;
-    const { sessionId } = p;
+    const { sessionId } = await params;
 
     const responses = await getSessionResponses(sessionId);
 

@@ -1,13 +1,12 @@
-import { supabase } from "./supabase";
-import { createClient } from "@supabase/supabase-js";
+
+import { createSupabaseClient } from "./supabase-server";
 
 // Prefer a server-side Supabase client (service role) when available.
-const serverSupabase = (process.env.SUPABASE_SERVICE_ROLE_KEY && process.env.NEXT_PUBLIC_SUPABASE_URL)
-	? createClient(process.env.NEXT_PUBLIC_SUPABASE_URL, process.env.SUPABASE_SERVICE_ROLE_KEY)
-	: null;
+const db = await createSupabaseClient();
+
 
 // Use server client when running on the server (API routes), otherwise fall back to public client.
-const db = serverSupabase ?? supabase;
+
 
 // Basic types used in the helpers
 export type Participant = {
@@ -48,13 +47,6 @@ export type Response = {
 	mouse_data_json?: string | null;
 	created_at?: string;
 };
-
-function handleError<T>(result: { data: T | null; error: any }) {
-	const { data, error } = result as any;
-	// Allow empty results for some selects; otherwise throw
-	if (error && error.code !== "PGRST116") throw error;
-	return data;
-}
 
 /**
  * Upsert a participant by participant_id

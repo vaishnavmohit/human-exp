@@ -1,13 +1,10 @@
 "use client";
 
+import { createSupabaseClient } from "@/lib/supabase-server";
 import { useParams, useRouter } from "next/navigation";
 import { useEffect, useState } from "react";
-import { createClient } from "@supabase/supabase-js";
 
-// Initialize Supabase client (uses env vars)
-const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
-const supabaseKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
-const supabase = supabaseUrl && supabaseKey ? createClient(supabaseUrl, supabaseKey) : null;
+const supabase = await createSupabaseClient();
 
 /**
  * Invite Link Handler
