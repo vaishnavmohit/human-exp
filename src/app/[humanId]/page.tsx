@@ -28,6 +28,7 @@ export default function QuizPage() {
   const [sessionId, setSessionId] = useState<string | null>(null);
   const [isResumed, setIsResumed] = useState(false);
   const [assignedGroup, setAssignedGroup] = useState<number | null>(null); // Actual group from DB
+  const [participantId, setParticipantId] = useState<string | null>(null); // exact DB participant_id
 
   // Utility: find next index in `questions` whose question.id is not in answeredSet,
   // starting at startIndex (inclusive). Returns questions.length if none found.
@@ -50,23 +51,26 @@ export default function QuizPage() {
       try {
         // STEP 1: Check if participant exists and get their assigned group
         console.log('🔍 Checking participant registration...');
-        const participantCheckRes = await fetch(`/api/participants?participant_id=${humanId}`);
+        const participantCheckRes = await fetch(`/api/participants?participant_id=${encodeURIComponent(humanId as string)}`);
         
         let detectedGroup: number | null = null;
         let participantExists = false;
+        let dbParticipantId: string | null = null; // Use exact participant_id from DB
         
         if (participantCheckRes.ok) {
           const participantData = await participantCheckRes.json();
           if (participantData.data) {
             participantExists = true;
             detectedGroup = participantData.data.assigned_group;
-            console.log(`✅ Participant found with group ${detectedGroup}`);
+            dbParticipantId = participantData.data.participant_id; // Store exact DB value
+            console.log(`✅ Participant found with group ${detectedGroup}, id: ${dbParticipantId}`);
             setAssignedGroup(detectedGroup);
+            setParticipantId(dbParticipantId);
           }
         }
         
         // If participant doesn't exist, show registration error
-        if (!participantExists) {
+        if (!participantExists || !dbParticipantId) {
           setError(
             `Participant "${humanId}" is not registered. Please register first or contact the administrator.`
           );
@@ -74,9 +78,12 @@ export default function QuizPage() {
           return;
         }
         
-        // STEP 2: Determine which group to use
-        // Priority: Database group > URL group
-        const finalGroup = detectedGroup!;
+  // STEP 2: Determine which group to use
+  // Priority: Database group > URL group
+  const finalGroup = detectedGroup!;
+  const effectiveParticipantId = dbParticipantId; // Use exact DB participant_id for all subsequent calls
+  // persist effective participant id in state (already set above), but keep local var for clarity
+  const pidForApi = effectiveParticipantId;
         
         // If URL has group param and it doesn't match, redirect
         if (urlGroup !== null && urlGroup !== finalGroup) {
@@ -85,19 +92,19 @@ export default function QuizPage() {
           );
           setError(`Redirecting to your assigned group ${finalGroup}...`);
           setTimeout(() => {
-            window.location.href = `/${humanId}?group=${finalGroup}`;
+            window.location.href = `/${encodeURIComponent(pidForApi)}?group=${finalGroup}`;
           }, 1500);
           return;
         }
         
         // STEP 3: Load quiz questions for the correct group
-        console.log(`📚 Loading quiz for group ${finalGroup}...`);
-        const questions = await loadQuiz(humanId as string, finalGroup);
+  console.log(`📚 Loading quiz for group ${finalGroup}...`);
+  const questions = await loadQuiz(pidForApi, finalGroup);
         setQuiz(questions);
 
         // STEP 4: Check for existing incomplete session (RESUME FUNCTIONALITY)
-        console.log('🔍 Checking for incomplete session...');
-        const checkSessionRes = await fetch(`/api/sessions/resume?participant_id=${humanId}`);
+  console.log('🔍 Checking for incomplete session...');
+  const checkSessionRes = await fetch(`/api/sessions/resume?participant_id=${encodeURIComponent(pidForApi)}`);
         
         let resumedSession = null;
         if (checkSessionRes.ok) {
@@ -147,7 +154,7 @@ export default function QuizPage() {
             });
           }
         } else {
-          // Create new session
+          // Create new session using exact participant_id from database
           const questionIds = questions.map(q => q.id);
           const categoryMap = questions.reduce((acc, q) => {
             acc[q.id] = q.category;
@@ -158,7 +165,7 @@ export default function QuizPage() {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
-              participant_id: humanId,
+              participant_id: pidForApi, // use local variable derived from DB
               assigned_group: finalGroup,
               total_questions: questions.length,
               assignment_json: questionIds,
@@ -260,7 +267,7 @@ export default function QuizPage() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            participant_id: humanId,
+            participant_id: participantId || humanId,
             session_id: sessionId,
             question_id: question.id,
             category: question.category,
@@ -345,7 +352,7 @@ export default function QuizPage() {
     <div className="h-screen w-screen flex flex-col bg-zinc-50">
       <QuizHeader 
         concept={question.concept} 
-        pid={humanId as string} 
+        pid={(participantId || humanId) as string} 
         group={assignedGroup || 1} 
       />
 

@@ -17,12 +17,28 @@ export async function POST(request: NextRequest) {
       metadata_json,
     } = body;
 
-    // Validate required fields
-    if (!participant_id || !assigned_group) {
+    // Validate required fields (participant_id may be omitted; we will generate one)
+    if (!assigned_group) {
       return NextResponse.json(
-        { error: "Missing required fields: participant_id, assigned_group" },
+        { error: "Missing required field: assigned_group" },
         { status: 400 }
       );
+    }
+
+    // If participant_id was not provided, generate a safe one server-side.
+    // Prefer a derivation from email/enrollment when available, otherwise fall
+    // back to a timestamp-based id.
+    let finalParticipantId = participant_id;
+    if (!finalParticipantId) {
+      if (email) {
+        const local = String(email).split("@")[0].replace(/[^a-zA-Z0-9_-]/g, "_");
+        finalParticipantId = `${local}_${Date.now()}`;
+      } else if (enrollment_number) {
+        const local = String(enrollment_number).replace(/[^a-zA-Z0-9_-]/g, "_");
+        finalParticipantId = `${local}_${Date.now()}`;
+      } else {
+        finalParticipantId = `participant_${Date.now()}`;
+      }
     }
 
     // Load config and validate group against supported groups
@@ -38,7 +54,7 @@ export async function POST(request: NextRequest) {
 
     // Create or update participant
     const participant = await upsertParticipant({
-      participant_id,
+      participant_id: finalParticipantId,
       email,
       enrollment_number,
       assigned_group,

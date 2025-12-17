@@ -31,32 +31,42 @@ export default function Home() {
     setError(null);
 
     try {
-      // Use provided participant ID, or generate from email/enrollment
-      const pid = participantId || email || enrollmentNumber || `pid_${Date.now()}`;
-      
-      // Register participant in Supabase
+      // If user explicitly provided a participantId, send it. Otherwise
+      // allow the server to generate a participant_id from email/enrollment.
+      const payload: any = {
+        email: email || null,
+        enrollment_number: enrollmentNumber || null,
+        assigned_group: selectedGroup,
+        consent: consent,
+        share_data: true,
+      };
+
+      if (participantId) payload.participant_id = participantId;
+
       const registerRes = await fetch('/api/participants', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          participant_id: pid,
-          email: email || null,
-          enrollment_number: enrollmentNumber || null,
-          assigned_group: selectedGroup,
-          consent: consent,
-          share_data: true,
-        })
+        body: JSON.stringify(payload),
       });
 
       if (!registerRes.ok) {
-        const errorData = await registerRes.json();
-        throw new Error(errorData.error || 'Failed to register participant');
+        // Attempt to parse server error if present
+        let errorText = 'Failed to register participant';
+        try {
+          const errJson = await registerRes.json();
+          errorText = errJson.error || errorText;
+        } catch (_) {}
+        throw new Error(errorText);
       }
 
-      console.log('✅ Participant registered:', pid);
+      const resJson = await registerRes.json();
+      const returnedParticipant = resJson.data;
+      const finalPid = returnedParticipant?.participant_id || returnedParticipant?.participantId || participantId || email || enrollmentNumber || `participant_${Date.now()}`;
 
-      // Navigate to quiz (no need to pass group, it will be auto-detected)
-      router.push(`/${pid}`);
+      console.log('✅ Participant registered:', finalPid);
+
+      // Navigate to quiz (server will auto-detect group if necessary)
+      router.push(`/${encodeURIComponent(finalPid)}`);
     } catch (err) {
       console.error("Error starting quiz:", err);
       setError("Failed to start quiz. Please try again.");
